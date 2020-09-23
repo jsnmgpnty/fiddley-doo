@@ -8,6 +8,9 @@ const WorkspaceSchema = extendSchema(
   {
     jsCode: String,
     status: String,
+    error: {
+      message: String,
+    },
   },
   BaseEntitySchemaOptions,
   BaseEntityHooks,

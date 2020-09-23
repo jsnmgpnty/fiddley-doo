@@ -1,0 +1,130 @@
+version: '3.7'
+
+services:
+  code-service:
+    container_name: code-service
+    build:
+      context: ./code-service
+      dockerfile: Dockerfile
+    ports:
+      - 11000:11000
+    networks:
+      - fdnet
+    environment: 
+      APP_NAME: "code-service"
+      APP_PORT: "11000"
+      MESSAGING_EXCHANGE_NAME: "fiddleydo.exchange"
+      MESSAGING_EXCHANGE_TYPE: "direct"
+      MESSAGING_URI: "amqp://rabbitmq:rabbitmq@fd-rabbit:5672"
+      DATABASE_CONNECTION_STRING: "mongodb://fd-mongo:27017/workspace"
+      SWAGGER_TITLE: "Code Service"
+      SWAGGER_DESCRIPTION: "Processes submitted codes"
+      SWAGGER_VERSION: "1.0"
+      ELASTIC_SEARCH_URL: "http://fd-elasticsearch:9200"
+      ELASTIC_SEARCH_INDEX: "fiddleydo"
+    depends_on:
+      - fd-rabbit
+      - fd-mongo
+      - fd-elasticsearch
+  code-processor:
+    container_name: code-processor
+    build:
+      context: ./code-processor
+      dockerfile: Dockerfile
+    ports:
+      - 11001:11001
+    networks:
+      - fdnet
+    environment: 
+      APP_NAME: "code-processor"
+      APP_PORT: "11001"
+      MESSAGING_EXCHANGE_NAME: "fiddleydo.exchange"
+      MESSAGING_EXCHANGE_TYPE: "direct"
+      MESSAGING_URI: "amqp://rabbitmq:rabbitmq@fd-rabbit:5672"
+      SWAGGER_TITLE: "Code Processor"
+      SWAGGER_DESCRIPTION: "Processes code submissions"
+      SWAGGER_VERSION: "1.0"
+      ELASTIC_SEARCH_URL: "http://fd-elasticsearch:9200"
+      ELASTIC_SEARCH_INDEX: "fiddleydo"
+      OPENAPI_HOSTS_NAME_CODESERVICE: "CodeService"
+      OPENAPI_HOSTS_URL_CODESERVICE: "http://code-service:11000/explorer-json"
+    depends_on:
+      - fd-rabbit
+      - fd-mongo
+      - fd-elasticsearch
+  fd-rabbit:
+    image: "rabbitmq:3-management"
+    hostname: "fd-rabbit"
+    environment:
+      RABBITMQ_ERLANG_COOKIE: "SWQOKODSQALRPCLNMEQG"
+      RABBITMQ_DEFAULT_USER: "rabbitmq"
+      RABBITMQ_DEFAULT_PASS: "rabbitmq"
+      RABBITMQ_DEFAULT_VHOST: "/"
+    ports:
+      - "15672:15672"
+      - "5672:5672"
+    labels:
+      NAME: "rabbitmq1"
+    volumes:
+      - ./rabbitmq/rabbitmq.conf:/etc/rabbitmq.conf:ro
+      - ./rabbitmq/definitions.json:/etc/rabbitmq/definitions.json:ro
+    networks:
+      fdnet:
+  fd-mongo: 
+    image: mongo:latest
+    volumes:
+      - fd-mongo-data:/data/db
+    ports:
+      - "27017:27017"
+    networks:
+      fdnet:
+  fd-elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.4.2
+    container_name: fd-elasticsearch
+    environment:
+      - cluster.name=fiddleydo-es
+      - discovery.type=single-node
+      - http.cors.enabled=true
+      - http.cors.allow-credentials=true
+      - http.cors.allow-headers=X-Requested-With,X-Auth-Token,Content-Type,Content-Length,Authorization
+      - http.cors.allow-origin=*
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    ports:
+      - "9200:9200"
+    volumes:
+      - fd-esdata:/usr/share/elasticsearch/data
+    networks:
+      fdnet:
+  fd-kibana:
+    image: docker.elastic.co/kibana/kibana-oss:7.4.2
+    ports:
+      - "5601:5601"
+    environment: 
+      ELASTICSEARCH_HOSTS: http://fd-elasticsearch:9200
+    networks:
+      fdnet:
+    depends_on:
+      - fd-elasticsearch
+  fd-logstash:
+    image: docker.elastic.co/logstash/logstash-oss:7.4.2
+    depends_on:
+    - fd-elasticsearch
+    ports:
+    - "9600:9600"
+    - "5044:5044"
+    - "28777:28777"
+    volumes:
+    - ./logstash/logstash.conf:/etc/logstash/conf.d/logstash.conf:ro
+    - ./etc/logstash/pipeline:/usr/share/logstash/pipeline:ro
+    command: logstash -f /etc/logstash/conf.d/logstash.conf
+    networks:
+      fdnet:
+networks:
+  fdnet:
+volumes:
+  fd-mongo-data:
+  fd-esdata:

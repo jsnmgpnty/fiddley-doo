@@ -1,6 +1,5 @@
 import { CallHandler, ExecutionContext, Injectable, NestInterceptor } from '@nestjs/common';
 import { Request, Response } from 'express';
-import { isEmpty, isNil } from 'lodash';
 import { Observable } from 'rxjs';
 import * as rawbody from 'raw-body';
 
@@ -12,7 +11,7 @@ export class RequestSanitizerInterceptor implements NestInterceptor {
     const response = ctx.getResponse<Response>();
     if (!request || !response) return next.handle();
     const type = request.method;
-    if (['get', 'delete'].includes(type.toLowerCase()) || isNil(request.body)) return next.handle();
+    if (!type || type.toLowerCase() !== 'post' || !request.body) return next.handle();
     if (typeof request.body === 'string') {
       request.body = JSON.parse(request.body);
       return next.handle();

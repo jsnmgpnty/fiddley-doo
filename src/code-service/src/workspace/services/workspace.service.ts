@@ -28,7 +28,7 @@ export class WorkspaceService extends BaseService<Workspace>{
       );
     }
 
-    this.publisherService.sendToQueue('fiddleydo.events.processcode', result);
+    if (result.data) this.sendToQueue(result.data);
     return result;
   }
 
@@ -41,7 +41,10 @@ export class WorkspaceService extends BaseService<Workspace>{
       );
     }
 
-    this.publisherService.sendToQueue('fiddleydo.events.processcode', result);
     return result;
+  }
+
+  public sendToQueue(item: Workspace) {
+    if (item) this.publisherService.sendToQueue('fiddleydo.events.processcode', item);
   }
 }

@@ -14,6 +14,7 @@ export class PublisherService {
         if (isNil(routingKey)) routingKey = '';
         resolve(this.amqpConnection.publish(exchange, routingKey, message));
       } catch (error) {
+        this.logger.error(`AMQP failed published to ${exchange} - ${routingKey}`, error);
         resolve(false);
       }
     });
@@ -25,6 +26,7 @@ export class PublisherService {
         this.logger.log(`AMQP published to queue: ${queue} | ${JSON.stringify(message)}`);
         resolve(this.amqpConnection.channel.sendToQueue(queue, Buffer.from(JSON.stringify(message)), { persistent: true }));
       } catch (error) {
+        this.logger.error(`AMQP failed send to queue ${queue}`, error);
         resolve(false);
       }
     });
